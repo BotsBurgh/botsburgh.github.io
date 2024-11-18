@@ -4,3 +4,25 @@
     background: #121212;
   }
 }
+.collapsible {
+  background-color: #555555;
+  color: gold;
+  cursor: pointer;
+  padding: 5px;
+  width: 22%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 24px;
+}
+
+.active, .collapsible:hover {
+  background-color: #555;
+}
+
+.content {
+  padding: 0 18px;
+  display: none;
+  overflow: hidden;
+  background-color: #121212;
+}
