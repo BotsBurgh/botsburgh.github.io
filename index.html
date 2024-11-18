@@ -5,16 +5,21 @@
     <title>Kiwi Vector Visualizer</title>
   </head>
   <body>
+    <input type="file" onchange="previewFile()" /><br />
+
     <canvas id="myCanvas" width="1700" height="900">
       Your browser does not support the HTML canvas tag.
     </canvas>
+
+    <p class="content"></p>
+
     <script>
       var c = document.getElementById("myCanvas");
       var ctx = c.getContext("2d");
 
       ctx.lineWidth = 5;
       ctx.strokeStyle = "#FFD700";
-      
+
       ctx.moveTo(500, 500);
       ctx.lineTo(800, 500);
       ctx.stroke();
@@ -30,6 +35,27 @@
       ctx.beginPath();
       ctx.arc(650, 414, 173, 0, 2 * Math.PI);
       ctx.stroke();
+    </script>
+
+    <script>
+      function previewFile() {
+        const content = document.querySelector(".content");
+        const [file] = document.querySelector("input[type=file]").files;
+        const reader = new FileReader();
+
+        reader.addEventListener(
+          "load",
+          () => {
+            // this will then display a text file
+            content.innerText = reader.result;
+          },
+          false,
+        );
+
+        if (file) {
+          reader.readAsText(file);
+        }
+      }
     </script>
   </body>
 </html>
