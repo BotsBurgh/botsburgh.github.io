@@ -5,15 +5,17 @@
     <title>Kiwi Vector Visualizer</title>
   </head>
   <body>
-    <input type="file" onchange="previewFile()" /><br />
-
     <canvas id="myCanvas" width="1700" height="900">
       Your browser does not support the HTML canvas tag.
     </canvas>
 
-    <p class="content"></p>
+    <input type="file" onchange="previewFile()" /><br />
+    <button type="button" class="collapsible">Open CSV</button>
+    <div class="content">
+      <p class="content"></p>
+    </div>
 
-    <!--Draws the robot-->
+    <!--Draws Robot-->
     <script>
       var c = document.getElementById("myCanvas");
       var ctx = c.getContext("2d");
@@ -37,7 +39,8 @@
       ctx.arc(650, 414, 173, 0, 2 * Math.PI);
       ctx.stroke();
     </script>
-    <!--Reads contents of csv-->
+
+    <!--CSV Reader-->
     <script>
       function previewFile() {
         const content = document.querySelector(".content");
@@ -56,6 +59,24 @@
         if (file) {
           reader.readAsText(file);
         }
+      }
+    </script>
+
+    <!--Collapsible-->
+    <script>
+      var coll = document.getElementsByClassName("collapsible");
+      var i;
+
+      for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function () {
+          this.classList.toggle("active");
+          var content = this.nextElementSibling;
+          if (content.style.display === "block") {
+            content.style.display = "none";
+          } else {
+            content.style.display = "block";
+          }
+        });
       }
     </script>
   </body>
