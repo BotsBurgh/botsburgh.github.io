@@ -1,4 +1,4 @@
-const content = document.querySelector(".content");
+const content = document.querySelector(".scrollable");
 const [file] = document.querySelector("input[type=file]").files;
 const reader = new FileReader();
 
