@@ -1,7 +1,6 @@
- function previewFile() {
-        const content = document.querySelector(".content");
-        const [file] = document.querySelector("input[type=file]").files;
-        const reader = new FileReader();
+const content = document.querySelector(".content");
+const [file] = document.querySelector("input[type=file]").files;
+const reader = new FileReader();
 
         reader.addEventListener(
           "load",
@@ -15,4 +14,3 @@
         if (file) {
           reader.readAsText(file);
         }
-      }
