@@ -19,3 +19,10 @@
       ctx.beginPath();
       ctx.arc(650, 414, 173, 0, 2 * Math.PI);
       ctx.stroke();
+
+      var main = document.getElementById("myCanvas");
+        var render = main.getContext("2d");
+        main.style.left = "400px";
+        main.style.top = "25px";
+        main.style.position = "absolute";
+
