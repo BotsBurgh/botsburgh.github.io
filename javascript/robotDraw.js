@@ -17,9 +17,9 @@ ctx.moveTo(650, 241);
 ctx.lineTo(500, 500);
 ctx.stroke();
 
-ctx.beginPath();
+/**ctx.beginPath();
 ctx.arc(650, 414, 173, 0, 2 * Math.PI);
-ctx.stroke();
+ctx.stroke();**/
 
 //red wheel
 
