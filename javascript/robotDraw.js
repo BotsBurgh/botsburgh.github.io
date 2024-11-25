@@ -23,13 +23,11 @@ ctx.stroke();
 
 //red wheel
 
-var r = c.getContext("2d");
-r.lineWidth = 5;
-r.strokeStyle = "#FF0000";
+ctx.strokeStyle = "#FF0000";
 
-r.moveTo(650, 241);
-r.lineTo(700, 241);
-r.stroke();
+ctx.moveTo(650, 241);
+ctx.lineTo(700, 241);
+ctx.stroke();
 
 
 
