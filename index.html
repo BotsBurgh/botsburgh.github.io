@@ -1,24 +1,265 @@
 <!doctype html>
-<html>
-  <head>
-    <link rel="stylesheet" href="main.css" />
-    <title>Kiwi Vector Visualizer</title>
-  </head>
-  <body>
-    <canvas id="myCanvas" width="1000" height="800">
-      Your browser does not support the HTML canvas tag.
-    </canvas>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>KiwiPath</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #000000;
+    color: #000000;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  .left { width: 66%; display: flex; flex-direction: column; gap: 12px; }
+  .right { width: 34%; display: flex; flex-direction: column; gap: 12px; }
+  .viewer, .panel {
+    background: #FFD700;
+    padding: 12px;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+  }
+  .canvas-wrap {
+    position: relative;
+    display: inline-block;
+    aspect-ratio: 1 / 1;
+    border: 3px solid #0006;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #222;
+  }
+  #fieldImg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: rgba(255,80,80,0.95);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    font-size: 10px;
+    color: #140b0b;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .line {
+    position: absolute;
+    height: 2px;
+    background: rgba(255,255,255,0.5);
+    transform-origin: 0 50%;
+    pointer-events: none;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: #000000;
+    color: white;
+    border: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #000000; }
+  label { color: #000000; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; color: #000000; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
+  th { color: #000000; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="viewer">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <strong>KiwiPathing</strong><br>
+          <small>FTC #11792 - Autonomous Planning Tool</small>
+        </div>
+        <div class="controls">
+          <label><input type="checkbox" id="originToggle" checked> Origin bottom-left</label>
+          <button id="downloadKtBtn">Download Auto</button>
+          <button id="clearBtn" class="ghost">Clear</button>
+        </div>
+      </div>
 
-    <input type="file" onchange="previewFile()" accept=".csv" /><br />
-    <div class="scrollable" id="content"></div>
+      <div class="canvas-wrap" id="canvasWrap">
+        <img id="fieldImg" 
+             src="decode-custom-field-images-meepmeep-compatible-printer-v0-xsjhmvxpoonf1.png"
+             alt="12x12 field">
+      </div>
+      <div id="lastClick" style="margin-top:8px;color:#000000;">No clicks yet.</div>
+      <div id="totalDist" style="margin-top:4px;color:#000000;">Total distance: 0.00 ft</div>
+    </div>
+  </div>
 
-    <!--Draws Robot-->
-    <script src="javascript/robotDraw.js"> </script>
+  <div class="right">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Click Log</strong>
+        <div id="count" style="color:#000000;">0 clicks</div>
+      </div>
+      <table id="logTable" style="margin-top:8px;">
+        <thead><tr><th>#</th><th>ft (x,y)</th><th>Δdist (ft)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
-    <!--CSV Reader-->
-    <script src="javascript/csvReader.js"> </script>
-     
-    <!--Collapsible-->
-    <script scr="javascript/collapsible.js"> </script>
-  </body>
+<script>
+(() => {
+  const FIELD_SIZE_FT = 12;
+  const img = document.getElementById('fieldImg');
+  const wrap = document.getElementById('canvasWrap');
+  const originToggle = document.getElementById('originToggle');
+  const logTableBody = document.querySelector('#logTable tbody');
+  const lastClick = document.getElementById('lastClick');
+  const countEl = document.getElementById('count');
+  const totalDistEl = document.getElementById('totalDist');
+  const downloadKtBtn = document.getElementById('downloadKtBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let log = [], totalDist = 0, markerCounter = 0;
+
+  const fmt = n => Number(n).toFixed(2);
+
+  function getPixelCoords(evt){
+    const rect = img.getBoundingClientRect();
+    const fx = (evt.clientX - rect.left) / rect.width;
+    const fy = (evt.clientY - rect.top) / rect.height;
+    if(fx<0||fx>1||fy<0||fy>1) return null;
+    return {fx, fy};
+  }
+
+  function pixelToFeet(fx, fy){
+    const xFt = fx * FIELD_SIZE_FT;
+    const yFt = originToggle.checked ? (1 - fy) * FIELD_SIZE_FT : fy * FIELD_SIZE_FT;
+    return {xFt, yFt};
+  }
+
+  function distance(p1, p2){
+    const dx = p2.xFt - p1.xFt;
+    const dy = p2.yFt - p1.yFt;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  function appendLog(xFt, yFt, delta){
+    log.push({xFt, yFt, delta});
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${log.length}</td><td>${fmt(xFt)}, ${fmt(yFt)}</td><td>${fmt(delta)}</td>`;
+    logTableBody.prepend(tr);
+    countEl.textContent = `${log.length} clicks`;
+    lastClick.textContent = log.length > 1 
+      ? `Δdistance: ${fmt(delta)} ft` 
+      : `First point: (${fmt(xFt)}, ${fmt(yFt)}) ft`;
+  }
+
+  function placeMarker(xFt, yFt, label){
+    const marker = document.createElement('div');
+    marker.className = 'marker';
+    marker.textContent = label ?? (++markerCounter);
+    const rect = img.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const left = (xFt / FIELD_SIZE_FT) * rect.width + (rect.left - wrapRect.left);
+    const top = ((originToggle.checked ? 1 - (yFt / FIELD_SIZE_FT) : (yFt / FIELD_SIZE_FT)) * rect.height) + (rect.top - wrapRect.top);
+    marker.style.left = `${left}px`;
+    marker.style.top = `${top}px`;
+    wrap.appendChild(marker);
+  }
+
+  function drawLine(p1, p2){
+    const line = document.createElement('div');
+    line.className = 'line';
+    const rect = img.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const x1 = (p1.xFt/FIELD_SIZE_FT)*rect.width+(rect.left-wrapRect.left);
+    const y1 = ((originToggle.checked?1-(p1.yFt/FIELD_SIZE_FT):(p1.yFt/FIELD_SIZE_FT))*rect.height)+(rect.top-wrapRect.top);
+    const x2 = (p2.xFt/FIELD_SIZE_FT)*rect.width+(rect.left-wrapRect.left);
+    const y2 = ((originToggle.checked?1-(p2.yFt/FIELD_SIZE_FT):(p2.yFt/FIELD_SIZE_FT))*rect.height)+(rect.top-wrapRect.top);
+    const dx=x2-x1, dy=y2-y1;
+    const length=Math.sqrt(dx*dx+dy*dy);
+    const angle=Math.atan2(dy,dx)*(180/Math.PI);
+    line.style.left=`${x1}px`;
+    line.style.top=`${y1}px`;
+    line.style.width=`${length}px`;
+    line.style.transform=`rotate(${angle}deg)`;
+    wrap.appendChild(line);
+  }
+
+  img.addEventListener('click', evt => {
+    const pos = getPixelCoords(evt);
+    if(!pos) return;
+    const ft = pixelToFeet(pos.fx, pos.fy);
+    let delta = 0;
+    if(log.length > 0){
+      const prev = log[log.length - 1];
+      delta = distance(prev, ft);
+      totalDist += delta;
+      drawLine(prev, ft);
+      totalDistEl.textContent = `Total distance: ${fmt(totalDist)} ft`;
+    }
+    appendLog(ft.xFt, ft.yFt, delta);
+    placeMarker(ft.xFt, ft.yFt);
+  });
+
+  downloadKtBtn.addEventListener('click', () => {
+    if (log.length < 2) return alert("Need at least 2 points to generate path.");
+    let code = `package org.firstinspires.ftc.teamcode.autonomous
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
+import org.firstinspires.ftc.teamcode.api.TriWheels
+import org.firstinspires.ftc.teamcode.api.linear.SpecterDrive
+
+@Autonomous(name = "KiwiPath")
+class KiwiPath: LinearOpMode() {
+    override fun runOpMode() {
+        SpecterDrive.init(this)
+        TriWheels.init(this)
+
+        waitForStart()
+`;
+
+    for (let i = 1; i < log.length; i++) {
+      const dx = log[i].xFt - log[i - 1].xFt;
+      const dy = log[i].yFt - log[i - 1].yFt;
+      code += `        SpecterDrive.linearPath(${fmt(dx)}, ${fmt(dy)}, 0.0)\n        sleep(100)\n\n`;
+    }
+
+    code += `    }\n}`;
+    const blob = new Blob([code], {type: 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'KiwiPath.kt';
+    a.click();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (!confirm('Clear all logs?')) return;
+    log = [];
+    markerCounter = 0;
+    totalDist = 0;
+    logTableBody.innerHTML = '';
+    wrap.querySelectorAll('.marker,.line').forEach(m => m.remove());
+    countEl.textContent = '0 clicks';
+    lastClick.textContent = 'No clicks yet.';
+    totalDistEl.textContent = 'Total distance: 0.00 ft';
+  });
+})();
+</script>
+</body>
 </html>
