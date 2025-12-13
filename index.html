@@ -230,6 +230,7 @@ class KiwiPath: LinearOpMode() {
     override fun runOpMode() {
         SpecterDrive.init(this)
         TriWheels.init(this)
+        RobotTracker.init(this)
 
         waitForStart()
 `;
@@ -237,7 +238,7 @@ class KiwiPath: LinearOpMode() {
     for (let i = 1; i < log.length; i++) {
       const dx = log[i].xFt - log[i - 1].xFt;
       const dy = log[i].yFt - log[i - 1].yFt;
-      code += `        SpecterDrive.linearPath(${fmt(dx)}, ${fmt(dy)}, 0.0)\n        sleep(100)\n\n`;
+      code += `        SpecterDrive.linearPath(${fmt(dx)}, ${fmt(dy)}, 0.0)\n         sleep(100)\n\n`;
     }
 
     code += `    }\n}`;
