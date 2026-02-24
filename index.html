@@ -1,266 +1,395 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>KiwiPath</title>
-<style>
-  body {
-    margin: 0;
-    font-family: system-ui, sans-serif;
-    background: #000000;
-    color: #000000;
-    height: 100vh;
-    display: flex;
-    flex-direction: row;
-    gap: 16px;
-    padding: 16px;
-    box-sizing: border-box;
-  }
-  .left { width: 66%; display: flex; flex-direction: column; gap: 12px; }
-  .right { width: 34%; display: flex; flex-direction: column; gap: 12px; }
-  .viewer, .panel {
-    background: #FFD700;
-    padding: 12px;
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(2,6,23,0.6);
-  }
-  .canvas-wrap {
-    position: relative;
-    display: inline-block;
-    aspect-ratio: 1 / 1;
-    border: 3px solid #0006;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #222;
-  }
-  #fieldImg {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    user-select: none;
-    -webkit-user-drag: none;
-  }
-  .marker {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 3px solid #fff;
-    background: rgba(255,80,80,0.95);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
-    font-size: 10px;
-    color: #140b0b;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .line {
-    position: absolute;
-    height: 2px;
-    background: rgba(255,255,255,0.5);
-    transform-origin: 0 50%;
-    pointer-events: none;
-  }
-  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  button {
+    <title>KiwiPathing</title>
+    <style>
+body {
     background: #000000;
     color: white;
-    border: 0;
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-  }
-  button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #000000; }
-  label { color: #000000; font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; color: #000000; }
-  th, td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
-  th { color: #000000; }
+    font-family: Arial;
+    margin: 0;
+}
+
+h2 {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.mainContainer {
+    display: flex;
+    height: calc(100vh - 60px);
+}
+
+.leftPanel {
+    flex: 0 0 auto;
+    padding: 10px;
+}
+
+.rightPanel {
+    width: 320px;
+    background: #000000;
+    border-left: 2px solid #f2ff00;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+canvas {
+    border: 2px solid white;
+    display: block;
+    margin-top: 10px;
+}
+
+.controls {
+    margin-bottom: 10px;
+}
+
+button, select, input {
+    margin: 4px;
+    padding: 5px;
+}
 </style>
 </head>
 <body>
-  <div class="left">
-    <div class="viewer">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <strong>KiwiPathing</strong><br>
-          <small>FTC #11792 - Autonomous Planning Tool</small>
-        </div>
+
+<h2>KiwiPathing V2.0 (Decode)</h2>
+
+<div class="mainContainer">
+
+    <!-- LEFT SIDE (Canvas + Controls) -->
+    <div class="leftPanel">
+
         <div class="controls">
-          <label><input type="checkbox" id="originToggle" checked> Origin bottom-left</label>
-          <button id="downloadKtBtn">Download Auto</button>
-          <button id="clearBtn" class="ghost">Clear</button>
+            <label>Path Type:</label>
+            <select id="pathType">
+                <option value="line">Straight Line</option>
+                <option value="spline">Spline</option>
+            </select>
+
+            <label>Final Heading:</label>
+            <input type="range" id="headingSlider" min="0" max="360" value="0">
+            <span id="headingValue">0°</span>
+
+            <button onclick="exportPath()">Export</button>
+            <button onclick="newSegment()">New Segment</button>
+            <button onclick="clearAll()">Clear All</button>
         </div>
-      </div>
 
-      <div class="canvas-wrap" id="canvasWrap">
-        <img id="fieldImg" 
-             src="decode-custom-field-images-meepmeep-compatible-printer-v0-xsjhmvxpoonf1.png"
-             alt="12x12 field">
-      </div>
-      <div id="lastClick" style="margin-top:8px;color:#000000;">No clicks yet.</div>
-      <div id="totalDist" style="margin-top:4px;color:#000000;">Total distance: 0.00 ft</div>
-    </div>
-  </div>
+        <canvas id="fieldCanvas" width="720" height="720"></canvas>
 
-  <div class="right">
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>Click Log</strong>
-        <div id="count" style="color:#000000;">0 clicks</div>
-      </div>
-      <table id="logTable" style="margin-top:8px;">
-        <thead><tr><th>#</th><th>ft (x,y)</th><th>Δdist (ft)</th></tr></thead>
-        <tbody></tbody>
-      </table>
     </div>
-  </div>
+
+    <!-- RIGHT SIDE (Log Panel) -->
+    <div class="rightPanel">
+        <h3>Segments</h3>
+        <div id="segmentPanel"></div>
+    </div>
+
+</div>
 
 <script>
-(() => {
-  const FIELD_SIZE_FT = 12;
-  const img = document.getElementById('fieldImg');
-  const wrap = document.getElementById('canvasWrap');
-  const originToggle = document.getElementById('originToggle');
-  const logTableBody = document.querySelector('#logTable tbody');
-  const lastClick = document.getElementById('lastClick');
-  const countEl = document.getElementById('count');
-  const totalDistEl = document.getElementById('totalDist');
-  const downloadKtBtn = document.getElementById('downloadKtBtn');
-  const clearBtn = document.getElementById('clearBtn');
+const canvas = document.getElementById("fieldCanvas");
+const ctx = canvas.getContext("2d");
 
-  let log = [], totalDist = 0, markerCounter = 0;
+const FIELD_SIZE = 144;
+const SCALE = canvas.width / FIELD_SIZE;
 
-  const fmt = n => Number(n).toFixed(2);
+let segments = [];
+let currentSegment = null;
 
-  function getPixelCoords(evt){
-    const rect = img.getBoundingClientRect();
-    const fx = (evt.clientX - rect.left) / rect.width;
-    const fy = (evt.clientY - rect.top) / rect.height;
-    if(fx<0||fx>1||fy<0||fy>1) return null;
-    return {fx, fy};
-  }
+const fieldImage = new Image();
+fieldImage.src = "field.png";
+fieldImage.onload = () => draw();
 
-  function pixelToFeet(fx, fy){
-    const xFt = fx * FIELD_SIZE_FT;
-    const yFt = originToggle.checked ? (1 - fy) * FIELD_SIZE_FT : fy * FIELD_SIZE_FT;
-    return {xFt, yFt};
-  }
+/* ===============================
+   SEGMENT MANAGEMENT
+================================= */
 
-  function distance(p1, p2){
-    const dx = p2.xFt - p1.xFt;
-    const dy = p2.yFt - p1.yFt;
-    return Math.sqrt(dx*dx + dy*dy);
-  }
+function newSegment() {
+    const type = document.getElementById("pathType").value;
 
-  function appendLog(xFt, yFt, delta){
-    log.push({xFt, yFt, delta});
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${log.length}</td><td>${fmt(xFt)}, ${fmt(yFt)}</td><td>${fmt(delta)}</td>`;
-    logTableBody.prepend(tr);
-    countEl.textContent = `${log.length} clicks`;
-    lastClick.textContent = log.length > 1 
-      ? `Δdistance: ${fmt(delta)} ft` 
-      : `First point: (${fmt(xFt)}, ${fmt(yFt)}) ft`;
-  }
+    currentSegment = {
+        type: type,
+        points: [],
+        heading: 0
+    };
 
-  function placeMarker(xFt, yFt, label){
-    const marker = document.createElement('div');
-    marker.className = 'marker';
-    marker.textContent = label ?? (++markerCounter);
-    const rect = img.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const left = (xFt / FIELD_SIZE_FT) * rect.width + (rect.left - wrapRect.left);
-    const top = ((originToggle.checked ? 1 - (yFt / FIELD_SIZE_FT) : (yFt / FIELD_SIZE_FT)) * rect.height) + (rect.top - wrapRect.top);
-    marker.style.left = `${left}px`;
-    marker.style.top = `${top}px`;
-    wrap.appendChild(marker);
-  }
+    segments.push(currentSegment);
+    updateSegmentUI();
+}
 
-  function drawLine(p1, p2){
-    const line = document.createElement('div');
-    line.className = 'line';
-    const rect = img.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const x1 = (p1.xFt/FIELD_SIZE_FT)*rect.width+(rect.left-wrapRect.left);
-    const y1 = ((originToggle.checked?1-(p1.yFt/FIELD_SIZE_FT):(p1.yFt/FIELD_SIZE_FT))*rect.height)+(rect.top-wrapRect.top);
-    const x2 = (p2.xFt/FIELD_SIZE_FT)*rect.width+(rect.left-wrapRect.left);
-    const y2 = ((originToggle.checked?1-(p2.yFt/FIELD_SIZE_FT):(p2.yFt/FIELD_SIZE_FT))*rect.height)+(rect.top-wrapRect.top);
-    const dx=x2-x1, dy=y2-y1;
-    const length=Math.sqrt(dx*dx+dy*dy);
-    const angle=Math.atan2(dy,dx)*(180/Math.PI);
-    line.style.left=`${x1}px`;
-    line.style.top=`${y1}px`;
-    line.style.width=`${length}px`;
-    line.style.transform=`rotate(${angle}deg)`;
-    wrap.appendChild(line);
-  }
+function clearAll() {
+    segments = [];
+    currentSegment = null;
+    updateSegmentUI();
+    draw();
+}
 
-  img.addEventListener('click', evt => {
-    const pos = getPixelCoords(evt);
-    if(!pos) return;
-    const ft = pixelToFeet(pos.fx, pos.fy);
-    let delta = 0;
-    if(log.length > 0){
-      const prev = log[log.length - 1];
-      delta = distance(prev, ft);
-      totalDist += delta;
-      drawLine(prev, ft);
-      totalDistEl.textContent = `Total distance: ${fmt(totalDist)} ft`;
-    }
-    appendLog(ft.xFt, ft.yFt, delta);
-    placeMarker(ft.xFt, ft.yFt);
-  });
+/* ===============================
+   CANVAS CLICK HANDLING
+================================= */
 
-  downloadKtBtn.addEventListener('click', () => {
-    if (log.length < 2) return alert("Need at least 2 points to generate path.");
-    let code = `package org.firstinspires.ftc.teamcode.autonomous
+canvas.addEventListener("click", function(event) {
 
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
-import org.firstinspires.ftc.teamcode.api.TriWheels
-import org.firstinspires.ftc.teamcode.api.linear.SpecterDrive
-
-@Autonomous(name = "KiwiPath")
-class KiwiPath: LinearOpMode() {
-    override fun runOpMode() {
-        SpecterDrive.init(this)
-        TriWheels.init(this)
-        RobotTracker.init(this)
-
-        waitForStart()
-`;
-
-    for (let i = 1; i < log.length; i++) {
-      const dx = log[i].xFt - log[i - 1].xFt;
-      const dy = log[i].yFt - log[i - 1].yFt;
-      code += `        SpecterDrive.linearPath(${fmt(dx*12)}, ${fmt(dy*12)}, 0.0)\n         sleep(100)\n\n`;
+    if (!currentSegment) {
+        alert("Click 'New Segment' first!");
+        return;
     }
 
-    code += `    }\n}`;
-    const blob = new Blob([code], {type: 'text/plain'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'KiwiPath.kt';
-    a.click();
-  });
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / SCALE;
+    const y = FIELD_SIZE - ((event.clientY - rect.top) / SCALE);
 
-  clearBtn.addEventListener('click', () => {
-    if (!confirm('Clear all logs?')) return;
-    log = [];
-    markerCounter = 0;
-    totalDist = 0;
-    logTableBody.innerHTML = '';
-    wrap.querySelectorAll('.marker,.line').forEach(m => m.remove());
-    countEl.textContent = '0 clicks';
-    lastClick.textContent = 'No clicks yet.';
-    totalDistEl.textContent = 'Total distance: 0.00 ft';
-  });
-})();
+    currentSegment.points.push({x, y});
+
+    const neededPoints = currentSegment.type === "line" ? 2 : 3;
+
+    if (currentSegment.points.length >= neededPoints) {
+        currentSegment = null; // auto-finish segment
+        updateSegmentUI();
+    }
+
+    draw();
+});
+
+/* ===============================
+   DRAWING
+================================= */
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(fieldImage, 0, 0, canvas.width, canvas.height);
+
+    segments.forEach(segment => {
+
+        // Draw Points with Numbers
+        ctx.fillStyle = "cyan";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        segment.points.forEach((p, pointIndex) => {
+
+            const canvasX = p.x * SCALE;
+            const canvasY = (FIELD_SIZE - p.y) * SCALE;
+
+            // Draw dot
+            ctx.beginPath();
+            ctx.arc(canvasX, canvasY, 6, 0, Math.PI*2);
+            ctx.fill();
+
+            // Draw number inside dot
+            ctx.fillStyle = "black";
+            ctx.fillText(pointIndex + 1, canvasX, canvasY);
+
+            ctx.fillStyle = "cyan";
+        });
+
+        if (segment.type === "line") {
+            drawLineSegment(segment.points);
+        } else {
+            drawSplineSegment(segment.points);
+        }
+    });
+}
+
+function drawLineSegment(points) {
+    if (points.length < 2) return;
+
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x * SCALE, (FIELD_SIZE - points[0].y) * SCALE);
+    ctx.lineTo(points[1].x * SCALE, (FIELD_SIZE - points[1].y) * SCALE);
+    ctx.stroke();
+}
+
+function drawSplineSegment(points) {
+    if (points.length < 2) return;
+
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const resolution = 20; // higher = smoother
+
+    for (let i = 0; i < points.length - 1; i++) {
+
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+
+        for (let j = 0; j <= resolution; j++) {
+            const t = j / resolution;
+            const t2 = t * t;
+            const t3 = t2 * t;
+
+            const x =
+                0.5 * (
+                    (2 * p1.x) +
+                    (-p0.x + p2.x) * t +
+                    (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 +
+                    (-p0.x + 3*p1.x - 3*p2.x + p3.x) * t3
+                );
+
+            const y =
+                0.5 * (
+                    (2 * p1.y) +
+                    (-p0.y + p2.y) * t +
+                    (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * t2 +
+                    (-p0.y + 3*p1.y - 3*p2.y + p3.y) * t3
+                );
+
+            const canvasX = x * SCALE;
+            const canvasY = (FIELD_SIZE - y) * SCALE;
+
+            if (i === 0 && j === 0) {
+                ctx.moveTo(canvasX, canvasY);
+            } else {
+                ctx.lineTo(canvasX, canvasY);
+            }
+        }
+    }
+
+    ctx.stroke();
+}
+/* ===============================
+   LOG UPDATE
+================================= */
+
+function updateSegmentUI() {
+
+    const panel = document.getElementById("segmentPanel");
+    panel.innerHTML = "";
+
+    segments.forEach((segment, index) => {
+
+        const container = document.createElement("div");
+        container.style.background = "#222";
+        container.style.border = "1px solid #444";
+        container.style.borderRadius = "6px";
+        container.style.padding = "8px";
+        container.style.marginBottom = "8px";
+
+        const titleRow = document.createElement("div");
+        titleRow.style.display = "flex";
+        titleRow.style.justifyContent = "space-between";
+        titleRow.style.alignItems = "center";
+
+        const title = document.createElement("span");
+        title.innerText = `Segment ${index + 1} (${segment.type})`;
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.innerText = "Delete";
+        deleteBtn.style.background = "#aa3333";
+        deleteBtn.style.color = "white";
+        deleteBtn.onclick = function() {
+            segments.splice(index, 1);
+            updateSegmentUI();
+            draw();
+        };
+
+        titleRow.appendChild(title);
+        titleRow.appendChild(deleteBtn);
+
+        container.appendChild(titleRow);
+
+        // Heading Slider
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = 0;
+        slider.max = 360;
+        slider.value = segment.heading;
+
+        const valueLabel = document.createElement("span");
+        valueLabel.innerText = segment.heading + "°";
+
+        slider.oninput = function() {
+            segment.heading = parseFloat(this.value);
+            valueLabel.innerText = this.value + "°";
+        };
+
+        container.appendChild(slider);
+        container.appendChild(valueLabel);
+
+        panel.appendChild(container);
+    });
+}
+
+/* ===============================
+   EXPORT
+================================= */
+
+function exportPath() {
+
+    let text = "";
+
+    segments.forEach((segment, index) => {
+
+        // ========================
+        // LINE SEGMENT
+        // ========================
+        if (segment.type === "line") {
+
+            if (segment.points.length < 2) return;
+
+            const end = segment.points[1];
+
+            text += `// Linear Segment ${index + 1}\n`;
+            text += `SpecterDrive.path(${end.x.toFixed(2)}, ${end.y.toFixed(2)}, ${segment.heading}, rC = false)\n\n`;
+        }
+
+        // ========================
+        // SPLINE SEGMENT
+        // ========================
+        if (segment.type === "spline") {
+
+            if (segment.points.length < 3) return;
+
+            const resolution = 20;
+            const p0 = segment.points[0];
+            const p1 = segment.points[1];
+            const p2 = segment.points[2];
+
+            text += `// Spline Segment ${index + 1}\n`;
+            text += "val path = listOf(\n";
+
+            for (let t = 0; t <= 1; t += 1/resolution) {
+
+                const x =
+                    (1 - t)*(1 - t)*p0.x +
+                    2*(1 - t)*t*p1.x +
+                    t*t*p2.x;
+
+                const y =
+                    (1 - t)*(1 - t)*p0.y +
+                    2*(1 - t)*t*p1.y +
+                    t*t*p2.y;
+
+                const h = (t >= 1) ? segment.heading : "null";
+
+                text += `    PathPoint(${x.toFixed(2)}, ${y.toFixed(2)}, ${h}),\n`;
+            }
+
+            text += ")\n\n";
+            text += "val pursuit = PurePursuit(path, lookahead = 6.0)\n\n";
+            text += "while (opModeIsActive() && !pursuit.isFinished(\n";
+            text += "        SpecterDrive.otos.position.x,\n";
+            text += "        SpecterDrive.otos.position.y\n";
+            text += "    )) {\n";
+            text += "    SpecterDrive.followPurePursuit(pursuit)\n";
+            text += "}\n\n";
+        }
+
+    });
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "specterdrive_path.txt";
+    link.click();
+}
 </script>
+
 </body>
 </html>
